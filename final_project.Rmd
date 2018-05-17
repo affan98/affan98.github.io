@@ -1,5 +1,5 @@
 ---
-title: "Final_Project"
+title: "A Look At Student Alcohol Consumption"
 author: "Affan Hussain"
 date: "May 13, 2018"
 output: html_document
@@ -9,22 +9,87 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+#Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this project I attempt to find a relationship between how much alcohol a student consumes and how high their grades are.  I will begin by taking a dataset with relevant information and clearn it up so that it is easier to analyze.  I will then do some Eploratory Data Analysis (EDA) to help me find a testable hypothesis.  Lastly I will attempt to use machine learning to predict a students grades based on their alcohol consumption.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+#Tools Required
 
-```{r cars}
-summary(cars)
+For this tutorial I will be using the R programming language and RStudio as my development environment.  Many of the functions used in this tutorial can be found in the Tidyverse library.  
+
+The dataset that I am using can be found at https://www.kaggle.com/uciml/student-alcohol-consumption
+
+#1 Getting and Cleaning our Data
+
+When you go to https://www.kaggle.com/uciml/student-alcohol-consumption you will notice there are actually two datasets. One for students in math classes and the other for students in portuguese language classes. Download both CSV files (Comma Seperated Value files).  We will then
+
+```{r}
+library(tidyverse)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+#Read in the CSV files and convert them to data frames
+math_df <- read.csv("student-mat.csv")
+port_df <- read.csv("student-por.csv")
+#Show the first 6 rows of the data frame
+head(math_df)
+#Show the last 6 rows of the data fram
+tail(port_df)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+##1.1 About our data
+Before we do any modifications to our data frames it's important to understand whaat's in our data.  There are over 30 columns with data on the student's family life, their social life, socio-economic status, etc.  We also have two data frames and the students in each are not completely unique, according to the description on Kaggle there are 382 students who appear in both sets.  We need to take care of these issues before doing any analysis.
+
+##1.2 Removing overlaps
+
+We want to combine the two data frames and remove their overlapping entities
+
+```{r}
+#This finds all the duplicates based on many of the students attributes
+duplicates <- merge(math_df, port_df, by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+
+#We remove these duplicates from the math table
+unique_math <- anti_join(math_df, duplicates, by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+
+#We then add the unique students from the math table to all of the other students
+students <- rbind(unique_math, port_df)
+
+head(students)
+
+```
+
+##1.3 Removing extra information
+Next we will remove the columns we won't be analyzing so that it is easier to view our table. We will also rename these columns so that they are easier to read
+
+```{r}
+#This selects the columns we want
+students <- students %>% select("failures", "Dalc", "Walc", "G1", "G2", "G3")
+#This renames the columns
+names(students) <- c("classes_failed","weekday_alc", "weekend_alc", "first_grade", "second_grade", "final_grade")
+
+head(students)
+```
+
+##1.4 Adding an extra column
+We will add a column called total_alc that gives a value for alcohol consumed during the entire week. Since the other columns take a value from 1 to 5 we will make our new column be scaled the same way
+
+```{r}
+students <- students %>% mutate(total_alc = ceiling((weekday_alc + weekend_alc)/2))
+head(students)
+```
+
+#2 Exploratory Data Analysis (EDA)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
