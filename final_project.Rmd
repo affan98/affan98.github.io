@@ -21,7 +21,7 @@ The dataset that I am using can be found at https://www.kaggle.com/uciml/student
 
 #1 Getting and Cleaning our Data
 
-When you go to https://www.kaggle.com/uciml/student-alcohol-consumption you will notice there are actually two datasets. One for students in math classes and the other for students in portuguese language classes. Download both CSV files (Comma Seperated Value files).  We will then
+When you go to https://www.kaggle.com/uciml/student-alcohol-consumption you will notice there are actually two datasets. One for students in math classes and the other for students in portuguese language classes. Download both CSV files (Comma Seperated Value files).  Throughout this tutorial we use the set of tidyverse libraries which contain all the essential tools a data scientist needs. You can find more information at https://www.tidyverse.org/
 
 ```{r}
 library(tidyverse)
@@ -42,7 +42,7 @@ Before we do any modifications to our data frames it's important to understand w
 
 ##1.2 Removing overlaps
 
-We want to combine the two data frames and remove their overlapping entities
+We want to combine the two data frames and remove duplicate entries. We do this by first finding all the duplicates and then removing them from one of the datasets. If you think about it in terms of sets A and B we are doing (A - (A intersect B)) Union B
 
 ```{r}
 #This finds all the duplicates based on many of the students attributes
@@ -59,7 +59,7 @@ head(students)
 ```
 
 ##1.3 Removing extra information
-Next we will remove the columns we won't be analyzing so that it is easier to view our table. We will also rename these columns so that they are easier to read
+Next we will remove the columns we won't be analyzing so that it is easier to view our table. We will also rename these columns so that they are easier to read.  More information about how the columns are labeled can be found on the kaggle page.
 
 ```{r}
 #This selects the columns we want
@@ -71,7 +71,7 @@ head(students)
 ```
 
 ##1.4 Adding an extra column
-We will add a column called total_alc that gives a value for alcohol consumed during the entire week. Since the other columns take a value from 1 to 5 we will make our new column be scaled the same way
+We will add a column called total_alc that gives a value for alcohol consumed during the entire week. Since the other columns take a value from 1 to 5 we will make our new column be scaled the same way. This will allow us to do more analysis later on.
 
 ```{r}
 students <- students %>% mutate(total_alc = ceiling((weekday_alc + weekend_alc)/2))
@@ -79,6 +79,109 @@ head(students)
 ```
 
 #2 Exploratory Data Analysis (EDA)
+
+Now that we have cleaned our data we can do some exploratory data analysis (EDA). The point of EDA is to get more information about general trends and patterns in our data so that we can make testable hypotheses.  We will perform two kinds of analysis: visualization and statistical measures.
+
+##2.1 Final grade vs Total alcohol consumption
+
+We start off with a couple of assumptions. Let's assume that the final grade is a good indicator of the students performance throughout the course.  Let's also assume that alcohol consumption is correlated with this final grade.  We can use ggplot (a libraray from tidyverse) to graph the relevant data.  You can get more information on ggplot at http://ggplot2.tidyverse.org/
+
+```{r warning=FALSE}
+students %>% 
+  ggplot(aes(x = total_alc, y = final_grade)) +
+  geom_smooth() +
+  labs(title = "Final grade vs Total alcohol consumption",
+       x = "Total alcohol consumed",
+       y = "Final grade")
+```
+
+From this graph we can easily see that the more alcohol a student consumes each week the lower their final grades tend to be.  As you can see in the graph there is a highlighted area around the line. This area represents a 95% confidence interval at each point. Taking another look at the graph we see that the area at higher alcohol consumptions is larger. That means there is more variance in final grades at those amounts.  
+
+We can also look at some of the statistics for our data
+```{r}
+cat("The average students alcohol consumption", mean(students$total_alc), "\n")
+cat("The average students final grade", mean(students$final_grade))
+```
+
+We can also look at how the student's grades are affected over time by their alcohol consumption.  We will quantify their changing grades by looking at the difference between their first and second grade as well as the difference between their second and final grades.
+
+```{r warning=FALSE}
+students %>% 
+  ggplot(aes(x = total_alc, y = (first_grade  - second_grade) + (second_grade - final_grade))) +
+  geom_smooth() +
+  labs(title = "Change in grade vs Total alcohol consumed",
+       x = "Change in grade over time",
+       y = "Total alcohol consumed")
+```
+
+
+This graph is a little more difficult to interpret.  We see that students who consume more alcohol also tend to have steadier grades compared to students who drink less alcohol.  Of course this graph doesn't take into account the actual grades. Those who drink more alcohol likely start with lower scores.   
+
+##2.2 Skew in our data
+
+The averages we found above aren't in the line we calculated so this suggests that there's some skew in our data. Let's create histograms of both total alcohol consumption and final grades.
+
+```{r}
+students %>%
+  ggplot(aes(x = total_alc)) +
+  geom_histogram() +
+  labs(title = "Number of students who consume X amount of alcohol",
+       x = "Alcohol consumption",
+       y = "Number of studnets")
+```
+
+```{r}
+students %>%
+  ggplot(aes(x = final_grade)) +
+  geom_histogram(binwidth = 1) +
+  labs(title = "Grade distribution of students",
+       x = "Number of students",
+       y = "Grade")
+```
+
+
+From the histogram on total alcohol consumption we see that most students drink little to no alcohol. This helps explain the smaller confidence interval at lower alcohol consumptions we saw in our earlier graph.  
+
+Next let's look at our final grades histogram. Most students achieve a grade between 10 and 13, with a steady decline after that.  There are very few grades below 10 which suggests that 10 marks some cutoff point in the grades where students are passing or not, similar to the difference between a C and a D in American schools.  There are a significant number of students with a final grade of 0.  This is probably due to students moving away from the school and dropouts.
+
+
+##2.3 Weekday vs Weekend Alcohol consumption
+
+Now that we know there is a correlation between total alcohol consumption and grades, and we know how our data is skewed we can look for more specific correlations and interpret them correcectly.  Let's see how weekday alcohol consumption affects grades vs weekend alcohol consumption.
+
+```{r warning=FALSE}
+students %>% 
+  ggplot(aes(x = weekend_alc, y = final_grade)) +
+  geom_smooth() +
+  geom_smooth(aes(x = weekday_alc, color = "Red")) + 
+  labs(title = "Final grade vs Weekday/Weekend alcohol consumption",
+       x = "Alcohol consumed during the week",
+       y = "Final grade")
+```
+
+In the above graph we plotted lines for both weekend and weekday alcohol consumption. Weekend alcohol consumption is in blue and Weekday alcohol consumption is in red.  It is pretty clear to see that drinking during the week has a far more negative effect on students grades compared to drinking on the weekend.
+
+##3 Machine Learning 
+Machine learning is an application of statistics 
+
+Let's try and quantify our above findings using ANOVA's.  Let's test the hypothesis
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
