@@ -63,9 +63,9 @@ Next we will remove the columns we won't be analyzing so that it is easier to vi
 
 ```{r}
 #This selects the columns we want
-students <- students %>% select("failures", "Dalc", "Walc", "G1", "G2", "G3")
+students <- students %>% select( "Dalc", "Walc", "G1", "G2", "G3")
 #This renames the columns
-names(students) <- c("classes_failed","weekday_alc", "weekend_alc", "first_grade", "second_grade", "final_grade")
+names(students) <- c("weekday_alc", "weekend_alc", "first_grade", "second_grade", "final_grade")
 
 head(students)
 ```
@@ -161,27 +161,88 @@ students %>%
 
 In the above graph we plotted lines for both weekend and weekday alcohol consumption. Weekend alcohol consumption is in blue and Weekday alcohol consumption is in red.  It is pretty clear to see that drinking during the week has a far more negative effect on students grades compared to drinking on the weekend.
 
-##3 Machine Learning 
-Machine learning is an application of statistics 
+##2.4 Interaction between Weekday and Weekend drinking
 
-Let's try and quantify our above findings using ANOVA's.  Let's test the hypothesis
+We know that drinking during the week is worse for grades but is drinking during the day independant of other factors? The following graph shows us the relationship between drinking during the week and drinking on the weekend
+
+```{r warning=FALSE}
+students %>%
+  ggplot(aes(x = weekend_alc, y = weekday_alc)) +
+  geom_smooth() + 
+  labs(title = "Alcohol consumed on weekdays vs consumed on weekends",
+       x = "Alcohol consumed on the weekend",
+       y = "Alcohol consumed on weekdays")
+```
+
+Here we see that there is a correlation between alcohol consumed during the week and the amount of alcohol consumed on the weekend.  What makes this graph interesting though is that it seems to grow exponentially. A student is much more likely to drink during the week if they drink a lot during the weekend. 
+
+#3 Machine Learning 
+Machine learning is an application of statistics.  The goal is to find a statistical model for our data and then to train that model to make predictions.  In this tutorial we use supervised machine learning.  We will train the model using a dataset then check the accuracy with a test data set.  Our model is going to predict final grades based on alcohol consumed throughout the week (weekdays and weekends)
+
+##3.1 Linear regression
+We will be using a linear regression model for this tutorial.  From our EDA graphs above we see that most of our relationships are linear.  The other benefit of using a linear regression model is that they tend to be easier to interpret, we can look at the betas to gain some understanding on the relationship between variables.  To learn more about linear regression for machine learning visit https://machinelearningmastery.com/linear-regression-for-machine-learning/
+
+```{r}
+model = lm(final_grade ~ weekday_alc + weekend_alc  , data = students)
+model
+```
+
+As we can see from the coefficients weekday alcohol consumption has a greater negative effect on grades compared to weekend alcohol consumption, this is consistent with what we discovered earlier.
+
+
+##3.2 Cross validation
+Now that we have a model we want to test it. We can do this using cross validation. Basically we recreate the model with a random sampling of the data then we use the rest of the data as a testing set.  We will use 5-fold cross validation to test our model.
+
+
+```{r}
+set.seed(1234)
+
+library(caret)
+# create the cross-validation partition
+result_df <- createFolds(students$final_grade, k=5) %>%
+  # fit models and gather results
+  purrr::imap(function(test_indices, fold_number) {
+    # split into train and test for the fold
+    train_df <- students %>%
+      select(final_grade, weekday_alc, weekend_alc) %>%
+      slice(-test_indices)
+
+    test_df <- students %>%
+      select(final_grade, weekday_alc, weekend_alc) %>%
+      slice(test_indices)
+  
+    # fit the two models
+    reg1 <- lm(final_grade~weekday_alc + weekend_alc, data=train_df)
+    
+    # gather results
+    test_df %>%
+      select(actual_final_grade = final_grade) %>%
+      mutate(fold=fold_number) %>%
+      mutate(predicted = predict(reg1, newdata=test_df))
+}) %>%
+  # combine the five result data frames into one
+  purrr::reduce(bind_rows)
+head(result_df)
+```
+
+Although our results aren't perfect they seem to get close to the actual value. So our fit is pretty good.
 
 
 
+#4 Conclusion
+
+There is a correlation between drinking alcohol and grades.  The more a student drinks the lower their final grades tend to be.  We also know that drinking during the week is far worse than drinking on the weekends.  
+
+This dataset is very rich and there is a lot more interesting questions we can ask.  We can examine how a student's home life affects how likely they are to drink. Is socio-economic class more important than alcohol consumption when predicting final grades? I encourage you to use this data set to explore these questions and many others.
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+#Further Reading
+* Caret Library http://topepo.github.io/caret/index.html
+* EDA http://www.stat.cmu.edu/~hseltman/309/Book/chapter4.pdf
+* GGplot http://ggplot2.tidyverse.org/
+* Linear Regression https://machinelearningmastery.com/linear-regression-for-machine-learning/
+* Tidyverse https://www.tidyverse.org/
 
 
 
